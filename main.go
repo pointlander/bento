@@ -216,7 +216,7 @@ func main() {
 
 		total += tf32.Gradient(cost).X[0]
 
-		if i%100 == 0 {
+		if i%BatchSize == 0 {
 			u++
 			b1, b2 := pow(B1), pow(B2)
 			for j, w := range set.Weights {
@@ -244,7 +244,7 @@ func main() {
 			}
 			points = append(points, plotter.XY{X: float64(i), Y: float64(total)})
 
-			if i%1000 == 0 {
+			if i%(BatchSize*10) == 0 {
 				set.Save(fmt.Sprintf("%d_set.w", i), total, i)
 			}
 			total = 0
