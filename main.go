@@ -5,11 +5,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math"
 	"math/rand"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -48,7 +50,7 @@ type Position struct {
 }
 
 // SelectPositions selects the positions of input data
-func SelectPositions(rnd *rand.Rand, width, height int, positions []Position) {
+func SelectPositions(width, height int, positions []Position) {
 	w, h := width/7, height/7
 	s := 0
 	for k := 0; k < height; k += h {
@@ -122,15 +124,14 @@ func AverageRows(k tf32.Continuation, node int, a *tf32.V) bool {
 	return false
 }
 
-func main() {
-	c, halt := make(chan os.Signal), false
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		halt = true
-	}()
+var (
+	// FlagSet is a weight set file
+	FlagSet = flag.String("set", "", "weight set file")
+)
 
-	rnd := rand.New(rand.NewSource(1))
+func main() {
+	flag.Parse()
+
 	images, err := mnist.Load()
 	if err != nil {
 		panic(err)
@@ -142,7 +143,76 @@ func main() {
 	for i := range selections {
 		selections[i].Positions = make([]int, width)
 	}
-	SelectPositions(rnd, images.Train.Width, images.Train.Height, selections)
+	SelectPositions(images.Train.Width, images.Train.Height, selections)
+
+	concat := tf32.B(Concat)
+	average := tf32.U(AverageRows)
+
+	if *FlagSet != "" {
+		others := tf32.NewSet()
+		others.Add("input", width, size)
+		for _, w := range others.Weights {
+			w.X = w.X[:cap(w.X)]
+		}
+		inputs := others.ByName["input"]
+
+		set := tf32.NewSet()
+		_, _, err = set.Open(*FlagSet)
+		if err != nil {
+			panic(err)
+		}
+
+		l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
+		l2 := tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2"))
+		out := average(l2)
+
+		correct := 0
+		type Result struct {
+			Probability float32
+			Index       int
+		}
+		for i := range images.Test.Images {
+			histogram := make([]Result, 10)
+			image := images.Test.Images[i]
+
+			for j := range inputs.X {
+				inputs.X[j] = 0
+			}
+			for j, set := range selections {
+				for i, value := range set.Positions {
+					inputs.X[j*width+i] = float32(image[value]) / 255
+				}
+			}
+
+			out(func(a *tf32.V) bool {
+				for j := 0; j < 10; j++ {
+					histogram[j].Probability = a.X[j]
+					histogram[j].Index = j
+				}
+				return true
+			})
+
+			sort.Slice(histogram, func(i, j int) bool {
+				return histogram[i].Probability > histogram[j].Probability
+			})
+
+			if histogram[0].Index == int(images.Test.Labels[i]) {
+				correct++
+			}
+		}
+
+		fmt.Println(correct, len(images.Test.Images))
+		return
+	}
+
+	c, halt := make(chan os.Signal), false
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		halt = true
+	}()
+
+	rnd := rand.New(rand.NewSource(1))
 
 	others := tf32.NewSet()
 	others.Add("input", width, size)
@@ -176,9 +246,6 @@ func main() {
 			w.States[i] = make([]float32, len(w.X))
 		}
 	}
-
-	concat := tf32.B(Concat)
-	average := tf32.U(AverageRows)
 
 	l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
 	l2 := tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2"))
