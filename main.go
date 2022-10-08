@@ -124,12 +124,48 @@ func AverageRows(k tf32.Continuation, node int, a *tf32.V) bool {
 	return false
 }
 
+// Awareness computes a self awareness function
+func Awareness(k tf32.Continuation, node int, a *tf32.V) bool {
+	size, width, n := len(a.X), a.S[0], float32(a.S[1])
+	averages := make([]float32, width)
+	for i := 0; i < size; i += width {
+		for j, ax := range a.X[i : i+width] {
+			averages[j] += ax
+		}
+	}
+	for i := 0; i < width; i++ {
+		averages[i] /= n
+	}
+	c := tf32.NewV(a.S[0]+width, a.S[1])
+	for i := 0; i < a.S[1]; i++ {
+		for j := 0; j < a.S[0]; j++ {
+			c.X = append(c.X, a.X[i*a.S[0]+j])
+		}
+		for j := 0; j < width; j++ {
+			c.X = append(c.X, averages[j])
+		}
+	}
+	if k(&c) {
+		return true
+	}
+	for i := 0; i < a.S[1]; i++ {
+		for j := 0; j < a.S[0]; j++ {
+			a.D[i*a.S[0]+j] += c.D[i*c.S[0]+j]
+			a.D[i*a.S[0]+j] += c.D[i*c.S[0]+j+a.S[0]] / n
+		}
+	}
+	return false
+}
+
 var (
 	// FlagSet is a weight set file
 	FlagSet = flag.String("set", "", "weight set file")
 )
 
 func main() {
+	// 8474 10000 without awareness
+	// 8924 10000 with awareness
+
 	flag.Parse()
 
 	images, err := mnist.Load()
@@ -147,6 +183,7 @@ func main() {
 
 	concat := tf32.B(Concat)
 	average := tf32.U(AverageRows)
+	awareness := tf32.U(Awareness)
 
 	if *FlagSet != "" {
 		others := tf32.NewSet()
@@ -163,7 +200,7 @@ func main() {
 		}
 
 		l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
-		l2 := tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2"))
+		l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), awareness(l1)), set.Get("b2")))
 		out := average(l2)
 
 		correct := 0
@@ -223,9 +260,9 @@ func main() {
 
 	set := tf32.NewSet()
 	set.Add("position", width, size)
-	set.Add("a1", hidden, hidden)
-	set.Add("b1", hidden, 1)
-	set.Add("a2", hidden, 10)
+	set.Add("a1", hidden, 2*hidden)
+	set.Add("b1", 2*hidden, 1)
+	set.Add("a2", 4*hidden, 10)
 	set.Add("b2", 10, 1)
 
 	for _, w := range set.Weights {
@@ -248,7 +285,7 @@ func main() {
 	}
 
 	l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
-	l2 := tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2"))
+	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), awareness(l1)), set.Get("b2")))
 	cost := tf32.Quadratic(average(l2), others.Get("output"))
 
 	i, total, u, start := 0, float32(0), 0.0, time.Now()
@@ -261,7 +298,7 @@ func main() {
 		return float32(y)
 	}
 	points := make(plotter.XYs, 0, 8)
-	for i < 10*len(images.Train.Images) {
+	for i < 40*len(images.Train.Images) {
 		index := rnd.Intn(len(images.Train.Images))
 		image := images.Train.Images[index]
 
