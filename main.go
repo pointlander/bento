@@ -24,6 +24,17 @@ import (
 	"gonum.org/v1/plot/vg/draw"
 )
 
+// Model is the machine learning model
+func Model(set, others tf32.Set) tf32.Meta {
+	concat := tf32.B(Concat)
+	average := tf32.U(AverageRows)
+	awareness := tf32.U(Awareness)
+
+	l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
+	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), awareness(l1)), set.Get("b2")))
+	return average(l2)
+}
+
 const (
 	// BatchSize is the size of a batch
 	BatchSize = 128
@@ -181,10 +192,6 @@ func main() {
 	}
 	SelectPositions(images.Train.Width, images.Train.Height, selections)
 
-	concat := tf32.B(Concat)
-	average := tf32.U(AverageRows)
-	awareness := tf32.U(Awareness)
-
 	if *FlagSet != "" {
 		others := tf32.NewSet()
 		others.Add("input", width, size)
@@ -199,9 +206,7 @@ func main() {
 			panic(err)
 		}
 
-		l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
-		l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), awareness(l1)), set.Get("b2")))
-		out := average(l2)
+		model := Model(set, others)
 
 		correct := 0
 		type Result struct {
@@ -221,7 +226,7 @@ func main() {
 				}
 			}
 
-			out(func(a *tf32.V) bool {
+			model(func(a *tf32.V) bool {
 				for j := 0; j < 10; j++ {
 					histogram[j].Probability = a.X[j]
 					histogram[j].Index = j
@@ -284,9 +289,8 @@ func main() {
 		}
 	}
 
-	l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
-	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), awareness(l1)), set.Get("b2")))
-	cost := tf32.Quadratic(average(l2), others.Get("output"))
+	model := Model(set, others)
+	cost := tf32.Quadratic(model, others.Get("output"))
 
 	i, total, u, start := 0, float32(0), 0.0, time.Now()
 	eta := float32(.001)
