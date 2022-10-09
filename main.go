@@ -138,22 +138,27 @@ func AverageRows(k tf32.Continuation, node int, a *tf32.V) bool {
 // Awareness computes a self awareness function
 func Awareness(k tf32.Continuation, node int, a *tf32.V) bool {
 	size, width, n := len(a.X), a.S[0], float32(a.S[1])
-	averages := make([]float32, width)
+	averages, squared := make([]float32, width), make([]float32, width)
 	for i := 0; i < size; i += width {
 		for j, ax := range a.X[i : i+width] {
 			averages[j] += ax
+			squared[j] += ax * ax
 		}
 	}
 	for i := 0; i < width; i++ {
 		averages[i] /= n
+		squared[i] /= n
 	}
-	c := tf32.NewV(a.S[0]+width, a.S[1])
+	c := tf32.NewV(a.S[0]+2*width, a.S[1])
 	for i := 0; i < a.S[1]; i++ {
 		for j := 0; j < a.S[0]; j++ {
 			c.X = append(c.X, a.X[i*a.S[0]+j])
 		}
 		for j := 0; j < width; j++ {
 			c.X = append(c.X, averages[j])
+		}
+		for j := 0; j < width; j++ {
+			c.X = append(c.X, squared[j]-averages[j]*averages[j])
 		}
 	}
 	if k(&c) {
@@ -163,6 +168,7 @@ func Awareness(k tf32.Continuation, node int, a *tf32.V) bool {
 		for j := 0; j < a.S[0]; j++ {
 			a.D[i*a.S[0]+j] += c.D[i*c.S[0]+j]
 			a.D[i*a.S[0]+j] += c.D[i*c.S[0]+j+a.S[0]] / n
+			a.D[i*a.S[0]+j] += c.D[i*c.S[0]+j+2*a.S[0]] * 2 * (a.X[i*a.S[0]+j] - averages[j]) / n
 		}
 	}
 	return false
@@ -175,7 +181,8 @@ var (
 
 func main() {
 	// 8474 10000 without awareness
-	// 8924 10000 with awareness
+	// 8924 10000 with average awareness
+	// 8989 10000 with average and variance awareness
 
 	flag.Parse()
 
@@ -267,7 +274,7 @@ func main() {
 	set.Add("position", width, size)
 	set.Add("a1", hidden, 2*hidden)
 	set.Add("b1", 2*hidden, 1)
-	set.Add("a2", 4*hidden, 10)
+	set.Add("a2", 6*hidden, 10)
 	set.Add("b2", 10, 1)
 
 	for _, w := range set.Weights {
