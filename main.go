@@ -219,7 +219,7 @@ func main() {
 	// 8989 10000 with average and variance awareness
 	// 9102 10000 with dropout
 	// 8825 10000 with tags on middle layer
-
+	// 9082 10000 with awareness on the input
 	flag.Parse()
 
 	images, err := mnist.Load()
