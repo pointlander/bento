@@ -65,7 +65,7 @@ func Model(inference bool, set, others tf32.Set) tf32.Meta {
 	}
 
 	l1 := dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))))
-	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2")))
+	l2 := tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2"))
 	return average(l2)
 }
 
@@ -221,6 +221,7 @@ func main() {
 	// 8825 10000 with tags on middle layer
 	// 9082 10000 with awareness on the input
 	// 9155 10000 with relu on first layer
+	// 9325 10000 removed TanH from output layer
 	flag.Parse()
 
 	images, err := mnist.Load()
