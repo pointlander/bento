@@ -64,7 +64,7 @@ func Model(inference bool, set, others tf32.Set) tf32.Meta {
 		})
 	}
 
-	l1 := dropout(awareness(tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))))
+	l1 := dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))))
 	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2")))
 	return average(l2)
 }
@@ -220,6 +220,7 @@ func main() {
 	// 9102 10000 with dropout
 	// 8825 10000 with tags on middle layer
 	// 9082 10000 with awareness on the input
+	// 9155 10000 with relu on first layer
 	flag.Parse()
 
 	images, err := mnist.Load()
@@ -310,7 +311,7 @@ func main() {
 	set.Add("position", width, size)
 	set.Add("a1", hidden, 2*hidden)
 	set.Add("b1", 2*hidden, 1)
-	set.Add("a2", 6*hidden, 10)
+	set.Add("a2", 12*hidden, 10)
 	set.Add("b2", 10, 1)
 
 	for _, w := range set.Weights {
