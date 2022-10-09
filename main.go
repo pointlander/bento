@@ -218,6 +218,7 @@ func main() {
 	// 8924 10000 with average awareness
 	// 8989 10000 with average and variance awareness
 	// 9102 10000 with dropout
+	// 8825 10000 with tags on middle layer
 
 	flag.Parse()
 
