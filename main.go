@@ -25,13 +25,47 @@ import (
 )
 
 // Model is the machine learning model
-func Model(set, others tf32.Set) tf32.Meta {
+func Model(inference bool, set, others tf32.Set) tf32.Meta {
+	rnd := rand.New(rand.NewSource(1))
 	concat := tf32.B(Concat)
 	average := tf32.U(AverageRows)
 	awareness := tf32.U(Awareness)
+	dropout := tf32.U(func(k tf32.Continuation, node int, a *tf32.V) bool {
+		size, width := len(a.X), a.S[0]
+		c, drops, factor := tf32.NewV(a.S...), make([]int, width), float32(1)/(1-.1)
+		for i := range drops {
+			if rnd.Float64() > .1 {
+				drops[i] = 1
+			}
+		}
+		c.X = c.X[:cap(c.X)]
+		for i := 0; i < size; i += width {
+			for j, ax := range a.X[i : i+width] {
+				if drops[j] == 1 {
+					c.X[i+j] = ax * factor
+				}
+			}
+		}
+		if k(&c) {
+			return true
+		}
+		for i := 0; i < size; i += width {
+			for j := range a.D[i : i+width] {
+				if drops[j] == 1 {
+					a.D[i+j] += c.D[i+j]
+				}
+			}
+		}
+		return false
+	})
+	if inference {
+		dropout = tf32.U(func(k tf32.Continuation, node int, a *tf32.V) bool {
+			return k(a)
+		})
+	}
 
-	l1 := tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))
-	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), awareness(l1)), set.Get("b2")))
+	l1 := dropout(awareness(tf32.Sigmoid(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))))
+	l2 := tf32.TanH(tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2")))
 	return average(l2)
 }
 
@@ -183,6 +217,7 @@ func main() {
 	// 8474 10000 without awareness
 	// 8924 10000 with average awareness
 	// 8989 10000 with average and variance awareness
+	// 9102 10000 with dropout
 
 	flag.Parse()
 
@@ -213,7 +248,7 @@ func main() {
 			panic(err)
 		}
 
-		model := Model(set, others)
+		model := Model(true, set, others)
 
 		correct := 0
 		type Result struct {
@@ -296,7 +331,7 @@ func main() {
 		}
 	}
 
-	model := Model(set, others)
+	model := Model(false, set, others)
 	cost := tf32.Quadratic(model, others.Get("output"))
 
 	i, total, u, start := 0, float32(0), 0.0, time.Now()
