@@ -20,4 +20,4 @@ Below is the accuracy of the model for the [MNIST](https://en.wikipedia.org/wiki
 ## Citations
 * [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
 * [An Attention Free Transformer](https://arxiv.org/abs/2105.14103)
-* [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/pdf/2010.11929.pdf)
+* [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929)
