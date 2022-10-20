@@ -226,6 +226,7 @@ func main() {
 	// 9325 10000 removed TanH from output layer
 	// 9599 10000 three layers
 	// 9662 10000 four layers
+	// 9679 10000 double width
 	flag.Parse()
 
 	images, err := mnist.Load()
@@ -314,13 +315,13 @@ func main() {
 
 	set := tf32.NewSet()
 	set.Add("position", width, size)
-	set.Add("a1", hidden, 2*hidden)
-	set.Add("b1", 2*hidden, 1)
-	set.Add("a2", 12*hidden, 2*hidden)
-	set.Add("b2", 2*hidden, 1)
-	set.Add("a3", 12*hidden, 2*hidden)
-	set.Add("b3", 2*hidden, 1)
-	set.Add("a4", 12*hidden, 10)
+	set.Add("a1", hidden, 4*hidden)
+	set.Add("b1", 4*hidden, 1)
+	set.Add("a2", 24*hidden, 4*hidden)
+	set.Add("b2", 4*hidden, 1)
+	set.Add("a3", 24*hidden, 4*hidden)
+	set.Add("b3", 4*hidden, 1)
+	set.Add("a4", 24*hidden, 10)
 	set.Add("b4", 10, 1)
 
 	for _, w := range set.Weights {
