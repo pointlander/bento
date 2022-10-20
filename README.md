@@ -16,6 +16,8 @@ Below is the accuracy of the model for the [MNIST](https://en.wikipedia.org/wiki
 | 9155    | 10000 | with relu on first layer            |
 | 9325    | 10000 | removed TanH from output layer      |
 | 9599    | 10000 | three layers                        |
+| 9662    | 10000 | four layers                         |
+| 9679    | 10000 | double width                        |
 
 ## Citations
 * [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
