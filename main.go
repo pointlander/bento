@@ -232,6 +232,7 @@ func main() {
 	// 9599 10000 three layers
 	// 9662 10000 four layers
 	// 9679 10000 double width
+	// 8799 10000 pixelwise
 	flag.Parse()
 
 	images, err := mnist.Load()
@@ -239,7 +240,7 @@ func main() {
 		panic(err)
 	}
 
-	width, size := 16, 49
+	width, size := 16, 28*28 //49
 	hidden := 2 * width
 	selections := make([]Position, size)
 	for i := range selections {
@@ -249,7 +250,7 @@ func main() {
 
 	if *FlagSet != "" {
 		others := tf32.NewSet()
-		others.Add("input", width, size)
+		others.Add("input", 256, size)
 		for _, w := range others.Weights {
 			w.X = w.X[:cap(w.X)]
 		}
@@ -275,10 +276,13 @@ func main() {
 			for j := range inputs.X {
 				inputs.X[j] = 0
 			}
-			for j, set := range selections {
+			/*for j, set := range selections {
 				for i, value := range set.Positions {
 					inputs.X[j*width+i] = float32(image[value]) / 255
 				}
+			}*/
+			for i, value := range image {
+				inputs.X[i*256+int(value)] = 1
 			}
 
 			model(func(a *tf32.V) bool {
@@ -312,7 +316,7 @@ func main() {
 	rnd := rand.New(rand.NewSource(1))
 
 	others := tf32.NewSet()
-	others.Add("input", width, size)
+	others.Add("input", 256, size)
 	others.Add("output", 10, 1)
 	for _, w := range others.Weights {
 		w.X = w.X[:cap(w.X)]
@@ -320,7 +324,7 @@ func main() {
 
 	set := tf32.NewSet()
 	set.Add("position", width, size)
-	set.Add("a1", hidden, WidthMultiplier*hidden)
+	set.Add("a1", 256+width, WidthMultiplier*hidden)
 	set.Add("b1", WidthMultiplier*hidden, 1)
 	for i := 1; i < Layers; i++ {
 		set.Add(fmt.Sprintf("a%d", i+1), WidthMultiplier*2*3*hidden, WidthMultiplier*hidden)
@@ -373,11 +377,14 @@ func main() {
 			outputs.X[j] = 0
 		}
 
-		for j, set := range selections {
+		/*for j, set := range selections {
 			for i, value := range set.Positions {
 				inputs.X[j*width+i] =
 					float32(image[value]) / 255
 			}
+		}*/
+		for i, value := range image {
+			inputs.X[i*256+int(value)] = 1
 		}
 		outputs.X[int(images.Train.Labels[index])] = 1
 
