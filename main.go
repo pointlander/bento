@@ -64,11 +64,12 @@ func Model(inference bool, set, others tf32.Set) tf32.Meta {
 		})
 	}
 
-	l1 := dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1")))))
-	l2 := dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get("a2"), l1), set.Get("b2")))))
-	l3 := dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get("a3"), l2), set.Get("b3")))))
-	l4 := tf32.Add(tf32.Mul(set.Get("a4"), l3), set.Get("b4"))
-	return average(l4)
+	layers := make([]tf32.Meta, 0, 8)
+	layers = append(layers, dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get("a1"), concat(set.Get("position"), others.Get("input"))), set.Get("b1"))))))
+	for i := 1; i < Layers; i++ {
+		layers = append(layers, dropout(awareness(tf32.Everett(tf32.Add(tf32.Mul(set.Get(fmt.Sprintf("a%d", i+1)), layers[i-1]), set.Get(fmt.Sprintf("b%d", i+1)))))))
+	}
+	return average(tf32.Add(tf32.Mul(set.Get(fmt.Sprintf("a%d", Layers+1)), layers[Layers-1]), set.Get(fmt.Sprintf("b%d", Layers+1))))
 }
 
 const (
@@ -78,6 +79,10 @@ const (
 	B1 = 0.9
 	// B2 exponential decay rate for the second-moment estimates
 	B2 = 0.999
+	// WidthMultiplier is the width multiplier for the model
+	WidthMultiplier = 2
+	// Layers is the number of layers
+	Layers = 1
 )
 
 const (
@@ -315,14 +320,14 @@ func main() {
 
 	set := tf32.NewSet()
 	set.Add("position", width, size)
-	set.Add("a1", hidden, 4*hidden)
-	set.Add("b1", 4*hidden, 1)
-	set.Add("a2", 24*hidden, 4*hidden)
-	set.Add("b2", 4*hidden, 1)
-	set.Add("a3", 24*hidden, 4*hidden)
-	set.Add("b3", 4*hidden, 1)
-	set.Add("a4", 24*hidden, 10)
-	set.Add("b4", 10, 1)
+	set.Add("a1", hidden, WidthMultiplier*hidden)
+	set.Add("b1", WidthMultiplier*hidden, 1)
+	for i := 1; i < Layers; i++ {
+		set.Add(fmt.Sprintf("a%d", i+1), WidthMultiplier*2*3*hidden, WidthMultiplier*hidden)
+		set.Add(fmt.Sprintf("b%d", i+1), WidthMultiplier*hidden, 1)
+	}
+	set.Add(fmt.Sprintf("a%d", Layers+1), WidthMultiplier*2*3*hidden, 10)
+	set.Add(fmt.Sprintf("b%d", Layers+1), 10, 1)
 
 	for _, w := range set.Weights {
 		if strings.HasPrefix(w.N, "b") {

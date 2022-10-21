@@ -5,19 +5,19 @@ This model is a feedforwd network with [ReLu](https://en.wikipedia.org/wiki/Rect
 ## Results
 Below is the accuracy of the model for the [MNIST](https://en.wikipedia.org/wiki/MNIST_database) dataset for different versions of the model.
 
-| Correct | Total | Change                              |
-| ------- | ----- | ----------------------------------- |
-| 8474    | 10000 | without awareness                   |
-| 8924    | 10000 | with average awareness              |
-| 8989    | 10000 | with average and variance awareness |
-| 9102    | 10000 | with dropout                        |
-| 8825    | 10000 | with tags on middle layer           |
-| 9082    | 10000 | with awareness on the input         |
-| 9155    | 10000 | with relu on first layer            |
-| 9325    | 10000 | removed TanH from output layer      |
-| 9599    | 10000 | three layers                        |
-| 9662    | 10000 | four layers                         |
-| 9679    | 10000 | double width                        |
+| Correct | Total | WidthMultiplier | Layers | Change                                 |
+| ------- | ----- | --------------- | ------ | -------------------------------------- |
+| 8474    | 10000 | ?               | 1      | without awareness                      |
+| 8924    | 10000 | ?               | 1      | with average awareness                 |
+| 8989    | 10000 | ?               | 1      | with average and variance awareness    |
+| 9102    | 10000 | ?               | 1      | with dropout                           |
+| 8825    | 10000 | ?               | 1      | with tags on middle layer (reverted)   |
+| 9082    | 10000 | ?               | 1      | with awareness on the input (reverted) |
+| 9155    | 10000 | ?               | 1      | with relu on first layer               |
+| 9325    | 10000 | 2               | 1      | removed TanH from output layer         |
+| 9599    | 10000 | 2               | 2      | three layers                           |
+| 9662    | 10000 | 2               | 3      | four layers                            |
+| 9679    | 10000 | 4               | 3      | double width                           |
 
 ## Citations
 * [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
